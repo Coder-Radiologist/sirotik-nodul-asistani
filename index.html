@@ -1,0 +1,1377 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4f46e5">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3063/3063176.png">
+    <title>Sirotik Nodül Uzmanı v4.2 - LI-RADS TR & mRECIST</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+        .option-btn {
+            transition: all 0.2s;
+        }
+        .option-btn:hover {
+            transform: translateY(-2px);
+        }
+        .option-btn.selected {
+            background: #5e72e4;
+            color: white;
+            border-color: #5e72e4;
+            box-shadow: 0 4px 12px rgba(94, 114, 228, 0.3);
+        }
+        .option-btn.selected-warning {
+            background: #f59e0b;
+            color: white;
+            border-color: #f59e0b;
+        }
+        .option-btn.selected-danger {
+            background: #ef4444;
+            color: white;
+            border-color: #ef4444;
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .alert-box {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-top: 12px;
+            font-size: 14px;
+        }
+        .alert-success { background: #f0fff4; border: 1px solid #9ae6b4; color: #276749; }
+        .alert-warning { background: #fffbeb; border: 1px solid #fcd34d; color: #92400e; }
+        .alert-danger { background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; }
+        .alert-info { background: #eff6ff; border: 1px solid #93c5fd; color: #1e40af; }
+        
+        .badge { padding: 4px 12px; border-radius: 6px; font-weight: 600; font-size: 13px; }
+        .badge-cr { background: #10b981; color: white; }
+        .badge-pr { background: #3b82f6; color: white; }
+        .badge-sd { background: #f59e0b; color: white; }
+        .badge-pd { background: #ef4444; color: white; }
+        .badge-nonviable { background: #10b981; color: white; }
+        .badge-equivocal { background: #f59e0b; color: white; }
+        .badge-viable { background: #ef4444; color: white; }
+        
+        @media print {
+            body { background: white; }
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body class="py-8 px-4 flex items-center justify-center min-h-screen">
+
+    <div class="max-w-6xl w-full glass-panel rounded-3xl shadow-2xl overflow-hidden flex flex-col lg:flex-row min-h-[750px]">
+        
+        <!-- Sol Panel - Sidebar -->
+        <div class="lg:w-1/3 bg-slate-900 text-white p-8 flex flex-col justify-between relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
+                <i class="fa-solid fa-dna text-9xl absolute -right-10 top-10"></i>
+            </div>
+            
+            <div>
+                <h1 class="text-2xl font-bold mb-2"><i class="fa-solid fa-user-doctor mr-2"></i>Radyoloji Asistanı</h1>
+                <p class="text-slate-400 text-sm mb-8">Sirotik Karaciğer Lezyon Değerlendirme v4.2</p>
+                
+                <div id="sidebar-steps" class="space-y-5">
+                    <!-- Dinamik sidebar -->
+                </div>
+            </div>
+
+            <div class="mt-8 space-y-3">
+                <div class="text-xs text-slate-500">
+                    Gd-EOB-DTPA (Primovist®) MRG Protokolü
+                </div>
+                <div class="text-xs text-slate-400 space-y-1">
+                    <div><i class="fa-solid fa-check-circle text-green-400 mr-1"></i> LI-RADS v2018 TR Algorithm</div>
+                    <div><i class="fa-solid fa-check-circle text-green-400 mr-1"></i> mRECIST v2010</div>
+                    <div><i class="fa-solid fa-check-circle text-green-400 mr-1"></i> EASL Clinical Practice Guidelines 2018</div>
+                </div>
+                <div class="text-xs text-slate-600 mt-4 pt-3 border-t border-slate-700">
+                    <div class="mb-1">Referanslar:</div>
+                    <div>• Chernyak V, et al. Radiology 2018</div>
+                    <div>• Lencioni R, Llovet JM. Semin Liver Dis 2010</div>
+                    <div>• EASL CPG HCC. J Hepatol 2018</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sağ Panel - Form -->
+        <div class="lg:w-2/3 p-8 bg-white relative overflow-y-auto max-h-[850px]">
+            <form id="mainForm" onsubmit="return false;">
+                
+                <!-- STEP 1: Değerlendirme Tipi -->
+                <div id="step-1" class="step-content animate-fade-in">
+                    <h2 class="text-xl font-bold text-slate-800 mb-6 border-b pb-2">
+                        <i class="fa-solid fa-clipboard-list mr-2 text-purple-500"></i>Değerlendirme Tipi
+                    </h2>
+                    
+                    <div class="grid grid-cols-1 gap-4 mb-6">
+                        <button type="button" onclick="selectEvaluationType('naive')" 
+                                class="option-btn p-5 border-2 border-slate-200 rounded-xl text-left flex items-start" 
+                                id="btn-eval-naive">
+                            <div class="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center mr-4 flex-shrink-0">
+                                <i class="fa-solid fa-search text-blue-600 text-2xl"></i>
+                            </div>
+                            <div>
+                                <div class="font-bold text-slate-800 text-lg">Yeni / Tedavi Almamış Lezyon</div>
+                                <div class="text-sm text-slate-500 mt-1">Lokal tedavi öyküsü yok. LI-RADS kategorilendirmesi yapılacak.</div>
+                            </div>
+                        </button>
+                        
+                        <button type="button" onclick="selectEvaluationType('post_treatment')" 
+                                class="option-btn p-5 border-2 border-slate-200 rounded-xl text-left flex items-start" 
+                                id="btn-eval-post_treatment">
+                            <div class="w-14 h-14 bg-purple-100 rounded-full flex items-center justify-center mr-4 flex-shrink-0">
+                                <i class="fa-solid fa-syringe text-purple-600 text-2xl"></i>
+                            </div>
+                            <div>
+                                <div class="font-bold text-slate-800 text-lg">Lokal Tedavi Sonrası Kontrol</div>
+                                <div class="text-sm text-slate-500 mt-1">Ablasyon / TACE / TARE sonrası değerlendirme. LI-RADS TR + mRECIST.</div>
+                            </div>
+                        </button>
+                    </div>
+
+                    <!-- Tedavi Detayları -->
+                    <div id="treatment-details" style="display: none;" class="animate-fade-in">
+                        <div class="bg-purple-50 border border-purple-200 rounded-xl p-5 mb-4">
+                            <h3 class="font-semibold text-purple-800 mb-4">
+                                <i class="fa-solid fa-clipboard-check mr-2"></i>Tedavi Bilgileri
+                            </h3>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-600 mb-2">Tedavi Tipi <span class="text-red-500">*</span></label>
+                                    <select id="treatment_type" class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none bg-white">
+                                        <option value="">Seçiniz...</option>
+                                        <optgroup label="Termal Ablasyon">
+                                            <option value="mwa">MWA (Mikrodalga Ablasyon)</option>
+                                            <option value="rfa">RFA (Radyofrekans Ablasyon)</option>
+                                            <option value="cryo">Kriyoablasyon</option>
+                                        </optgroup>
+                                        <optgroup label="Transarteriyel Tedavi">
+                                            <option value="ctace">cTACE (Lipiodol + Kemoterapi)</option>
+                                            <option value="deb_tace">DEB-TACE (Drug-Eluting Beads)</option>
+                                            <option value="tae">TAE (Bland Embolizasyon)</option>
+                                            <option value="tare">TARE / Y-90 (Radioembolizasyon)</option>
+                                        </optgroup>
+                                        <optgroup label="Diğer">
+                                            <option value="glue">Glue Embolizasyon</option>
+                                            <option value="combined">Kombine Tedavi</option>
+                                        </optgroup>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-600 mb-2">Tedavi Sayısı</label>
+                                    <input type="number" id="treatment_sessions" min="1" max="10" value="1" 
+                                           class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none bg-white">
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-600 mb-2">Tedavi Tarihi <span class="text-red-500">*</span></label>
+                                    <input type="date" id="treatment_date" 
+                                           class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none bg-white"
+                                           onchange="calculateInterval()">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-600 mb-2">Kontrol MRG Tarihi <span class="text-red-500">*</span></label>
+                                    <input type="date" id="control_date" 
+                                           class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none bg-white"
+                                           onchange="calculateInterval()">
+                                </div>
+                            </div>
+
+                            <div id="interval-display" class="bg-white border border-purple-100 rounded-lg p-3 text-center mb-4" style="display: none;">
+                                <span class="text-purple-700 font-medium">Tedavi sonrası süre: </span>
+                                <span id="interval-text" class="font-bold text-purple-900"></span>
+                                <span id="interval-warning" class="text-xs ml-2"></span>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-600 mb-2">Tedavi Öncesi Lezyon Boyutu (mm)</label>
+                                    <input type="number" id="baseline_size" min="5" max="200" step="1" 
+                                           class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none bg-white" 
+                                           placeholder="Örn: 25">
+                                    <p class="text-xs text-slate-500 mt-1">mRECIST baseline için önemli</p>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-600 mb-2">Tedavi Öncesi Viable Çap (mm)</label>
+                                    <input type="number" id="baseline_viable" min="5" max="200" step="1" 
+                                           class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none bg-white" 
+                                           placeholder="Genellikle = total boyut">
+                                    <p class="text-xs text-slate-500 mt-1">Arteriyel fazda kontrastlanan alan</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TARE Uyarısı -->
+                        <div id="tare-warning" style="display: none;" class="alert-box alert-warning mb-4">
+                            <i class="fa-solid fa-exclamation-triangle mr-2"></i>
+                            <strong>Y-90 (TARE) Notu:</strong> Radyoembolizasyon sonrası tümör yanıtı geç başlar (2-3 ay). 
+                            İlk ay kontrolünde yanıt değerlendirmesi yanıltıcı olabilir.
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end mt-6">
+                        <button onclick="goToStep2()" type="button" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg transition flex items-center">
+                            Sonraki <i class="fa-solid fa-arrow-right ml-2"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- STEP 2: Boyut -->
+                <div id="step-2" class="step-content hidden">
+                    <h2 class="text-xl font-bold text-slate-800 mb-6 border-b pb-2">
+                        <i class="fa-solid fa-ruler mr-2 text-blue-500"></i>
+                        <span id="step2-title">Lezyon Boyutu</span>
+                    </h2>
+                    
+                    <!-- NAIVE LEZYON -->
+                    <div id="naive-size-section">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-600 mb-2">
+                                    Güncel Boyut (mm) <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="size" min="1" max="200" step="1" 
+                                       class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50" 
+                                       placeholder="Örn: 15" onchange="calculateGrowthNaive()">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-600 mb-2">Önceki Tetkik</label>
+                                <select id="priorInterval" class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50" onchange="togglePriorSize()">
+                                    <option value="none">İlk değerlendirme / Yeni lezyon</option>
+                                    <option value="3">3 ay önce</option>
+                                    <option value="6">6 ay önce</option>
+                                    <option value="12">12 ay önce</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div id="priorSizeContainer" style="display: none;" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-600 mb-2">Önceki Boyut (mm)</label>
+                                <input type="number" id="priorSize" min="1" max="200" step="1" 
+                                       class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50" 
+                                       placeholder="Örn: 10" onchange="calculateGrowthNaive()">
+                            </div>
+                            <div id="growthResult" class="flex items-center"></div>
+                        </div>
+                        <div id="growthAlert" style="display: none;"></div>
+                    </div>
+
+                    <!-- POST-TREATMENT -->
+                    <div id="posttreatment-size-section" style="display: none;">
+                        <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+                            <div class="flex items-start">
+                                <i class="fa-solid fa-info-circle text-blue-600 mt-1 mr-3"></i>
+                                <div class="text-sm text-blue-800">
+                                    <div class="font-semibold mb-1">mRECIST Ölçüm Kuralları</div>
+                                    <ul class="space-y-1">
+                                        <li>• <strong>Viable tümör:</strong> Arteriyel fazda kontrastlanan (hipervasküler) alan</li>
+                                        <li>• <strong>Ölçüm:</strong> En uzun tek boyut (aksiyel planda)</li>
+                                        <li>• <strong>Nekroz:</strong> Kontrastlanmayan alan (viable değil)</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-600 mb-2">
+                                    Tedavi Zonu Total Boyut (mm)
+                                </label>
+                                <input type="number" id="current_total_size" min="0" max="200" step="1" 
+                                       class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50" 
+                                       placeholder="Ablasyon zonu / nekroz dahil" onchange="calculateMRECIST()">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-600 mb-2">
+                                    Güncel Viable Tümör Çapı (mm) <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" id="current_viable_size" min="0" max="200" step="1" 
+                                       class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50" 
+                                       placeholder="0 = viable tümör yok" onchange="calculateMRECIST()">
+                                <p class="text-xs text-slate-500 mt-1">Arteriyel fazda kontrastlanan alan. Yoksa 0 girin.</p>
+                            </div>
+                        </div>
+
+                        <div id="mrecist-preview" style="display: none;" class="alert-box mb-4"></div>
+
+                        <!-- Tedavi Zonu Kenar Değerlendirmesi -->
+                        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-4">
+                            <h4 class="font-semibold text-slate-700 mb-3">
+                                <i class="fa-solid fa-border-all mr-2"></i>Tedavi Zonu Kenar Değerlendirmesi
+                            </h4>
+                            <div class="mb-4">
+                                <label class="block text-sm text-slate-600 mb-2">Kenar Konturu</label>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <button type="button" onclick="selectOption('margin_contour', 'smooth')" 
+                                            class="option-btn p-2 border-2 border-slate-200 rounded-lg text-sm" 
+                                            id="btn-margin_contour-smooth">
+                                        <i class="fa-solid fa-circle text-green-500 mr-1"></i> Düzgün
+                                    </button>
+                                    <button type="button" onclick="selectOption('margin_contour', 'irregular')" 
+                                            class="option-btn p-2 border-2 border-slate-200 rounded-lg text-sm" 
+                                            id="btn-margin_contour-irregular">
+                                        <i class="fa-solid fa-draw-polygon text-yellow-500 mr-1"></i> İrregüler
+                                    </button>
+                                    <button type="button" onclick="selectOption('margin_contour', 'nodular')" 
+                                            class="option-btn p-2 border-2 border-slate-200 rounded-lg text-sm" 
+                                            id="btn-margin_contour-nodular">
+                                        <i class="fa-solid fa-circle-nodes text-red-500 mr-1"></i> Nodüler
+                                    </button>
+                                </div>
+                                <input type="hidden" id="margin_contour">
+                            </div>
+                            <label class="flex items-center p-3 border border-red-200 rounded-lg bg-red-50 cursor-pointer hover:bg-red-100 transition">
+                                <input type="checkbox" id="peripheral_enhancement" class="w-5 h-5 text-red-600 rounded mr-3">
+                                <div>
+                                    <span class="text-sm font-medium text-red-700">Periferik Nodüler/Masif Enhancement</span>
+                                    <p class="text-xs text-red-600">Tedavi zonu kenarında şüpheli kontrastlanma (LR-TR Viable kriteri)</p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-between mt-6">
+                        <button onclick="prevStep(1)" type="button" class="text-slate-500 hover:text-slate-800 font-semibold">
+                            <i class="fa-solid fa-arrow-left mr-2"></i>Geri
+                        </button>
+                        <button onclick="nextStep(3)" type="button" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg transition flex items-center">
+                            Sonraki <i class="fa-solid fa-arrow-right ml-2"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- STEP 3: T1/T2 Sinyal -->
+                <div id="step-3" class="step-content hidden">
+                    <h2 class="text-xl font-bold text-slate-800 mb-6 border-b pb-2">
+                        <i class="fa-solid fa-magnet mr-2 text-purple-500"></i>Sinyal Karakteristiği
+                    </h2>
+                    
+                    <div class="mb-6">
+                        <label class="block text-sm font-semibold text-slate-600 mb-3">
+                            T1W Sinyal (Pre-kontrast) <span class="text-red-500">*</span>
+                        </label>
+                        <div class="grid grid-cols-3 gap-3">
+                            <button type="button" onclick="selectOption('t1', 'hipointens')" 
+                                    class="option-btn p-3 border-2 border-slate-200 rounded-xl text-sm font-medium" 
+                                    id="btn-t1-hipointens">Hipointens</button>
+                            <button type="button" onclick="selectOption('t1', 'izointens')" 
+                                    class="option-btn p-3 border-2 border-slate-200 rounded-xl text-sm font-medium" 
+                                    id="btn-t1-izointens">İzointens</button>
+                            <button type="button" onclick="selectOption('t1', 'hiperintens')" 
+                                    class="option-btn p-3 border-2 border-slate-200 rounded-xl text-sm font-medium" 
+                                    id="btn-t1-hiperintens">Hiperintens</button>
+                        </div>
+                        <input type="hidden" id="t1">
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-sm font-semibold text-slate-600 mb-3">
+                            T2W Sinyal <span class="text-red-500">*</span>
+                        </label>
+                        <div class="grid grid-cols-2 gap-3 mb-2">
+                            <button type="button" onclick="selectOption('t2', 'hipointens')" 
+                                    class="option-btn p-3 border-2 border-slate-200 rounded-xl text-sm font-medium" 
+                                    id="btn-t2-hipointens">Hipointens</button>
+                            <button type="button" onclick="selectOption('t2', 'izointens')" 
+                                    class="option-btn p-3 border-2 border-slate-200 rounded-xl text-sm font-medium" 
+                                    id="btn-t2-izointens">İzointens</button>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button type="button" onclick="selectOption('t2', 'hafif_hiper')" 
+                                    class="option-btn p-3 border-2 border-slate-200 rounded-xl text-sm font-medium" 
+                                    id="btn-t2-hafif_hiper">Hafif Hiperintens</button>
+                            <button type="button" onclick="selectOption('t2', 'belirgin_hiper')" 
+                                    class="option-btn p-3 border-2 border-slate-200 rounded-xl text-sm font-medium" 
+                                    id="btn-t2-belirgin_hiper">Belirgin Hiperintens</button>
+                        </div>
+                        <input type="hidden" id="t2">
+                    </div>
+
+                    <!-- Tedavi sonrası sinyal ipucu -->
+                    <div id="signal-hint-treated" style="display: none;" class="alert-box alert-info">
+                        <i class="fa-solid fa-lightbulb mr-2"></i>
+                        <strong>Başarılı ablasyon:</strong> Koagülasyon nekrozu T1W'de hiperintens (methemoglobin), T2W'de hipointens görülür.
+                    </div>
+                    
+                    <!-- Naive sinyal ipucu -->
+                    <div id="signal-hint-naive" class="alert-box alert-info">
+                        <i class="fa-solid fa-lightbulb mr-2"></i>
+                        <strong>İpucu:</strong> T1 hiperintens + T2 hipointens → Siderotik nodül veya protein/kan içeriği
+                    </div>
+
+                    <div class="flex justify-between mt-6">
+                        <button onclick="prevStep(2)" type="button" class="text-slate-500 hover:text-slate-800 font-semibold">
+                            <i class="fa-solid fa-arrow-left mr-2"></i>Geri
+                        </button>
+                        <button onclick="nextStep(4)" type="button" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg transition flex items-center">
+                            Sonraki <i class="fa-solid fa-arrow-right ml-2"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- STEP 4: Dinamik Faz + HBF -->
+                <div id="step-4" class="step-content hidden">
+                    <h2 class="text-xl font-bold text-slate-800 mb-6 border-b pb-2">
+                        <i class="fa-solid fa-vial mr-2 text-green-500"></i>Primovist® Dinamik Değerlendirme
+                    </h2>
+                    
+                    <div class="mb-6">
+                        <label class="block text-sm font-semibold text-slate-600 mb-3">
+                            Arteriyel Faz <span class="text-red-500">*</span>
+                            <span class="text-xs font-normal text-slate-500 ml-2">(~25-30 sn)</span>
+                        </label>
+                        <div class="grid grid-cols-2 gap-3 mb-2">
+                            <button type="button" onclick="selectOption('aphe', 'yok')" 
+                                    class="option-btn p-3 border-2 border-slate-200 rounded-xl text-sm font-medium" 
+                                    id="btn-aphe-yok">Enhancement Yok</button>
+                            <button type="button" onclick="selectOption('aphe', 'hafif')" 
+                                    class="option-btn p-3 border-2 border-slate-200 rounded-xl text-sm font-medium" 
+                                    id="btn-aphe-hafif">Hafif / İzointens</button>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button type="button" onclick="selectOption('aphe', 'nonrim')" 
+                                    class="option-btn p-3 border-2 border-slate-200 rounded-xl text-sm font-medium" 
+                                    id="btn-aphe-nonrim">
+                                <span class="block">APHE (+)</span>
+                                <span class="text-xs text-slate-500">Non-rim, diffüz</span>
+                            </button>
+                            <button type="button" onclick="selectOption('aphe', 'rim')" 
+                                    class="option-btn p-3 border-2 border-slate-200 rounded-xl text-sm font-medium" 
+                                    id="btn-aphe-rim">
+                                <span class="block">Rim APHE</span>
+                                <span class="text-xs text-slate-500">Periferik halkamsı</span>
+                            </button>
+                        </div>
+                        <input type="hidden" id="aphe">
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-sm font-semibold text-slate-600 mb-3">
+                            Portal Venöz / Geç Faz (Washout) <span class="text-red-500">*</span>
+                            <span class="text-xs font-normal text-slate-500 ml-2">(~60-180 sn)</span>
+                        </label>
+                        <div class="grid grid-cols-2 gap-3 mb-2">
+                            <button type="button" onclick="selectOption('washout', 'yok')" 
+                                    class="option-btn p-3 border-2 border-slate-200 rounded-xl text-sm font-medium" 
+                                    id="btn-washout-yok">Washout Yok</button>
+                            <button type="button" onclick="selectOption('washout', 'var')" 
+                                    class="option-btn p-3 border-2 border-slate-200 rounded-xl text-sm font-medium" 
+                                    id="btn-washout-var">Washout (+)</button>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button type="button" onclick="selectOption('washout', 'peripheral')" 
+                                    class="option-btn p-3 border-2 border-slate-200 rounded-xl text-sm font-medium" 
+                                    id="btn-washout-peripheral">
+                                <span class="block">Peripheral Washout</span>
+                                <span class="text-xs text-slate-500">LR-M kriteri</span>
+                            </button>
+                            <button type="button" onclick="selectOption('washout', 'progressive')" 
+                                    class="option-btn p-3 border-2 border-slate-200 rounded-xl text-sm font-medium" 
+                                    id="btn-washout-progressive">
+                                <span class="block">Progressive Enhancement</span>
+                                <span class="text-xs text-slate-500">Hemanjiom paterni</span>
+                            </button>
+                        </div>
+                        <input type="hidden" id="washout">
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-sm font-semibold text-slate-600 mb-3">
+                            Hepatobiliyer Faz (HBF) <span class="text-red-500">*</span>
+                            <span class="text-xs font-normal text-slate-500 ml-2">(20. dakika)</span>
+                        </label>
+                        <div class="grid grid-cols-2 gap-3 mb-2">
+                            <button type="button" onclick="selectOption('hbf', 'hipointens')" 
+                                    class="option-btn p-3 border-2 border-slate-200 rounded-xl text-sm font-medium" 
+                                    id="btn-hbf-hipointens">
+                                <span class="block">Hipointens</span>
+                                <span class="text-xs text-slate-500">OATP1B3 kaybı</span>
+                            </button>
+                            <button type="button" onclick="selectOption('hbf', 'izointens')" 
+                                    class="option-btn p-3 border-2 border-slate-200 rounded-xl text-sm font-medium" 
+                                    id="btn-hbf-izointens">
+                                <span class="block">İzointens</span>
+                                <span class="text-xs text-slate-500">Korunmuş fonksiyon</span>
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button type="button" onclick="selectOption('hbf', 'hiperintens')" 
+                                    class="option-btn p-3 border-2 border-slate-200 rounded-xl text-sm font-medium" 
+                                    id="btn-hbf-hiperintens">
+                                <span class="block">Hiperintens</span>
+                                <span class="text-xs text-slate-500">FNH, β-katenin HCC</span>
+                            </button>
+                            <button type="button" onclick="selectOption('hbf', 'targetoid')" 
+                                    class="option-btn p-3 border-2 border-slate-200 rounded-xl text-sm font-medium" 
+                                    id="btn-hbf-targetoid">
+                                <span class="block">Targetoid</span>
+                                <span class="text-xs text-slate-500">LR-M kriteri</span>
+                            </button>
+                        </div>
+                        <input type="hidden" id="hbf">
+                    </div>
+
+                    <div class="flex justify-between mt-6">
+                        <button onclick="prevStep(3)" type="button" class="text-slate-500 hover:text-slate-800 font-semibold">
+                            <i class="fa-solid fa-arrow-left mr-2"></i>Geri
+                        </button>
+                        <button onclick="nextStep(5)" type="button" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg transition flex items-center">
+                            Sonraki <i class="fa-solid fa-arrow-right ml-2"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- STEP 5: DWI + Ek Bulgular -->
+                <div id="step-5" class="step-content hidden">
+                    <h2 class="text-xl font-bold text-slate-800 mb-6 border-b pb-2">
+                        <i class="fa-solid fa-microscope mr-2 text-indigo-500"></i>Difüzyon ve Ek Bulgular
+                    </h2>
+                    
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
+                        <div class="flex items-start">
+                            <i class="fa-solid fa-triangle-exclamation text-yellow-600 mt-1 mr-3"></i>
+                            <div class="text-sm text-yellow-800">
+                                <div class="font-semibold">ADC Ölçümü Hakkında</div>
+                                <p>EPI-ADC sekansının düşük rezolüsyonu nedeniyle küçük lezyonlarda ölçüm güvenilir olmayabilir. 
+                                Değerlendirilemiyorsa "Ölçülemedi" seçeneğini işaretleyin.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-600 mb-2">DWI (b800-1000)</label>
+                            <select id="dwi" class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50">
+                                <option value="none">Değerlendirilemedi</option>
+                                <option value="izointens">İzointens</option>
+                                <option value="hafif_hiper">Hafif Hiperintens</option>
+                                <option value="hiperintens">Hiperintens (Kısıtlanma +)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-600 mb-2">ADC Değeri</label>
+                            <div class="flex gap-2">
+                                <input type="number" id="adc" min="0.3" max="2.5" step="0.1" 
+                                       class="flex-1 p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50" 
+                                       placeholder="×10⁻³ mm²/s">
+                                <label class="flex items-center px-3 border border-slate-200 rounded-xl bg-slate-50 cursor-pointer hover:bg-slate-100">
+                                    <input type="checkbox" id="adc_unmeasurable" class="mr-2" onchange="toggleADC()">
+                                    <span class="text-sm text-slate-600">Ölçülemedi</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 rounded-xl p-4 mb-6">
+                        <h3 class="font-semibold text-slate-700 mb-3">Ek Özellikler</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <label class="flex items-center p-3 border rounded-lg hover:bg-white cursor-pointer transition">
+                                <input type="checkbox" id="capsule" class="w-5 h-5 text-blue-600 rounded mr-3">
+                                <span class="text-sm text-slate-700">Enhancing Kapsül</span>
+                            </label>
+                            <label class="flex items-center p-3 border rounded-lg hover:bg-white cursor-pointer transition">
+                                <input type="checkbox" id="fat" class="w-5 h-5 text-blue-600 rounded mr-3">
+                                <span class="text-sm text-slate-700">İntralezyonel Yağ</span>
+                            </label>
+                            <label class="flex items-center p-3 border rounded-lg hover:bg-white cursor-pointer transition">
+                                <input type="checkbox" id="corona" class="w-5 h-5 text-blue-600 rounded mr-3">
+                                <span class="text-sm text-slate-700">Korona Enhancement</span>
+                            </label>
+                            <label class="flex items-center p-3 border rounded-lg hover:bg-white cursor-pointer transition">
+                                <input type="checkbox" id="mosaic" class="w-5 h-5 text-blue-600 rounded mr-3">
+                                <span class="text-sm text-slate-700">Mozaik Patern</span>
+                            </label>
+                            <label class="flex items-center p-3 border rounded-lg hover:bg-white cursor-pointer transition">
+                                <input type="checkbox" id="nodule_in_nodule" class="w-5 h-5 text-blue-600 rounded mr-3">
+                                <span class="text-sm text-slate-700">Nodül içinde Nodül</span>
+                            </label>
+                            <label class="flex items-center p-3 border rounded-lg hover:bg-white cursor-pointer transition">
+                                <input type="checkbox" id="siderosis" class="w-5 h-5 text-blue-600 rounded mr-3">
+                                <span class="text-sm text-slate-700">Siderozis (T2* sinyal kaybı)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="bg-red-50 rounded-xl p-4">
+                        <h3 class="font-semibold text-red-700 mb-3">
+                            <i class="fa-solid fa-triangle-exclamation mr-2"></i>Kritik Bulgular
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <label class="flex items-center p-3 border border-red-200 rounded-lg hover:bg-red-100 cursor-pointer transition">
+                                <input type="checkbox" id="vascular_invasion" class="w-5 h-5 text-red-600 rounded mr-3">
+                                <span class="text-sm text-red-700 font-medium">Vasküler İnvazyon (TIV)</span>
+                            </label>
+                            <label class="flex items-center p-3 border border-red-200 rounded-lg hover:bg-red-100 cursor-pointer transition">
+                                <input type="checkbox" id="new_lesion" class="w-5 h-5 text-red-600 rounded mr-3">
+                                <span class="text-sm text-red-700 font-medium">Yeni İntrahepatik Lezyon</span>
+                            </label>
+                            <label class="flex items-center p-3 border border-red-200 rounded-lg hover:bg-red-100 cursor-pointer transition">
+                                <input type="checkbox" id="extrahepatic" class="w-5 h-5 text-red-600 rounded mr-3">
+                                <span class="text-sm text-red-700 font-medium">Ekstrahepatik Metastaz</span>
+                            </label>
+                            <label class="flex items-center p-3 border border-red-200 rounded-lg hover:bg-red-100 cursor-pointer transition">
+                                <input type="checkbox" id="lymph_node" class="w-5 h-5 text-red-600 rounded mr-3">
+                                <span class="text-sm text-red-700 font-medium">Patolojik Lenf Nodu</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-between mt-6">
+                        <button onclick="prevStep(4)" type="button" class="text-slate-500 hover:text-slate-800 font-semibold">
+                            <i class="fa-solid fa-arrow-left mr-2"></i>Geri
+                        </button>
+                        <button onclick="calculateResult()" type="button" class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-3 rounded-xl font-bold shadow-xl transition flex items-center transform hover:scale-105">
+                            DEĞERLENDİRMEYİ TAMAMLA <i class="fa-solid fa-check-circle ml-2"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- STEP 6: Sonuç -->
+                <div id="step-6" class="step-content hidden">
+                    <div id="result-container" class="animate-fade-in"></div>
+                    
+                    <div class="mt-8 flex flex-wrap justify-center gap-3 no-print">
+                        <button onclick="resetForm()" type="button" class="px-5 py-2 text-slate-500 border border-slate-300 rounded-lg hover:bg-slate-50 transition">
+                            <i class="fa-solid fa-rotate mr-2"></i>Yeni Değerlendirme
+                        </button>
+                        <button onclick="copyReport(event)" type="button" class="px-5 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 transition">
+                            <i class="fa-regular fa-copy mr-2"></i>Raporu Kopyala
+                        </button>
+                        <button onclick="window.print()" type="button" class="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                            <i class="fa-solid fa-print mr-2"></i>Yazdır
+                        </button>
+                    </div>
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // ===================== STATE =====================
+        let evaluationType = null;
+        let formData = {
+            t1: null, t2: null, aphe: null, washout: null, hbf: null,
+            margin_contour: null, growthData: null, mrecistData: null, treatmentInterval: null
+        };
+
+        const naiveSteps = [
+            { num: 1, label: "Değerlendirme Tipi" },
+            { num: 2, label: "Boyut & Takip" },
+            { num: 3, label: "Sinyal (T1/T2)" },
+            { num: 4, label: "Dinamik & HBF" },
+            { num: 5, label: "DWI & Ek Bulgular" },
+            { num: 6, label: "LI-RADS Sonuç", final: true }
+        ];
+
+        const postTreatmentSteps = [
+            { num: 1, label: "Tedavi Bilgileri" },
+            { num: 2, label: "Boyut & mRECIST" },
+            { num: 3, label: "Sinyal (T1/T2)" },
+            { num: 4, label: "Dinamik & HBF" },
+            { num: 5, label: "DWI & Ek Bulgular" },
+            { num: 6, label: "TR & mRECIST Sonuç", final: true }
+        ];
+
+        // ===================== SIDEBAR =====================
+        function renderSidebar(steps, current) {
+            document.getElementById('sidebar-steps').innerHTML = steps.map((s, i) => `
+                <div class="flex items-center ${i < current - 1 ? 'opacity-60' : i === current - 1 ? 'opacity-100' : 'opacity-40'}">
+                    <div class="w-8 h-8 rounded-full ${i < current - 1 ? 'bg-green-600' : i === current - 1 ? 'bg-blue-500 ring-2 ring-blue-400 ring-offset-2 ring-offset-slate-900' : s.final ? 'bg-green-600' : 'bg-slate-700'} flex items-center justify-center font-bold text-sm mr-3">
+                        ${s.final ? '<i class="fa-solid fa-check"></i>' : s.num}
+                    </div>
+                    <span class="font-medium text-sm">${s.label}</span>
+                </div>
+            `).join('');
+        }
+
+        // ===================== STEP 1 =====================
+        function selectEvaluationType(type) {
+            evaluationType = type;
+            document.querySelectorAll('[id^="btn-eval-"]').forEach(b => b.classList.remove('selected'));
+            document.getElementById(`btn-eval-${type}`).classList.add('selected');
+            
+            const details = document.getElementById('treatment-details');
+            details.style.display = type === 'post_treatment' ? 'block' : 'none';
+            
+            if (type === 'post_treatment') {
+                document.getElementById('control_date').valueAsDate = new Date();
+            }
+            
+            renderSidebar(type === 'post_treatment' ? postTreatmentSteps : naiveSteps, 1);
+        }
+
+        function calculateInterval() {
+            const tDate = document.getElementById('treatment_date').value;
+            const cDate = document.getElementById('control_date').value;
+            const display = document.getElementById('interval-display');
+            const text = document.getElementById('interval-text');
+            const warn = document.getElementById('interval-warning');
+            const tareWarn = document.getElementById('tare-warning');
+            
+            if (!tDate || !cDate) { display.style.display = 'none'; return; }
+            
+            const diff = Math.round((new Date(cDate) - new Date(tDate)) / (1000*60*60*24));
+            
+            if (diff < 0) {
+                text.textContent = "Hatalı tarih!";
+                warn.textContent = "";
+                display.style.display = 'block';
+                return;
+            }
+            
+            let str = diff < 7 ? `${diff} gün` : diff < 30 ? `${Math.round(diff/7)} hafta` : diff < 365 ? `~${Math.round(diff/30)} ay` : `~${(diff/365).toFixed(1)} yıl`;
+            text.textContent = str;
+            
+            // Timing warnings
+            if (diff < 21) {
+                warn.innerHTML = '<span class="text-yellow-600">(Erken kontrol - reaktif değişiklikler olabilir)</span>';
+            } else if (diff >= 28 && diff <= 42) {
+                warn.innerHTML = '<span class="text-green-600">(Optimal kontrol zamanı)</span>';
+            } else {
+                warn.textContent = '';
+            }
+            
+            display.style.display = 'block';
+            formData.treatmentInterval = { days: diff, months: Math.round(diff/30) };
+            
+            // TARE warning
+            const tType = document.getElementById('treatment_type').value;
+            tareWarn.style.display = (tType === 'tare' && diff < 60) ? 'block' : 'none';
+        }
+
+        // Treatment type change
+        document.addEventListener('DOMContentLoaded', () => {
+            renderSidebar(naiveSteps, 1);
+            document.getElementById('treatment_type')?.addEventListener('change', () => {
+                calculateInterval();
+            });
+        });
+
+        function goToStep2() {
+            if (!evaluationType) { alert("Lütfen değerlendirme tipini seçin."); return; }
+            
+            if (evaluationType === 'post_treatment') {
+                if (!document.getElementById('treatment_type').value) { alert("Tedavi tipini seçin."); return; }
+                if (!document.getElementById('treatment_date').value || !document.getElementById('control_date').value) { 
+                    alert("Tedavi ve kontrol tarihlerini girin."); return; 
+                }
+            }
+            
+            // Configure Step 2
+            const naiveSection = document.getElementById('naive-size-section');
+            const postSection = document.getElementById('posttreatment-size-section');
+            const title = document.getElementById('step2-title');
+            const hintNaive = document.getElementById('signal-hint-naive');
+            const hintTreated = document.getElementById('signal-hint-treated');
+            
+            if (evaluationType === 'naive') {
+                naiveSection.style.display = 'block';
+                postSection.style.display = 'none';
+                title.textContent = 'Lezyon Boyutu';
+                hintNaive.style.display = 'block';
+                hintTreated.style.display = 'none';
+            } else {
+                naiveSection.style.display = 'none';
+                postSection.style.display = 'block';
+                title.textContent = 'Tedavi Zonu & Viable Tümör';
+                hintNaive.style.display = 'none';
+                hintTreated.style.display = 'block';
+            }
+            
+            nextStep(2);
+        }
+
+        // ===================== OPTIONS =====================
+        function selectOption(group, value) {
+            formData[group] = value;
+            document.querySelectorAll(`[id^="btn-${group}-"]`).forEach(b => b.classList.remove('selected', 'selected-warning', 'selected-danger'));
+            const btn = document.getElementById(`btn-${group}-${value}`);
+            
+            // Color coding for dangerous options
+            if ((group === 'margin_contour' && value === 'nodular') || 
+                (group === 'aphe' && value === 'rim') ||
+                (group === 'washout' && value === 'peripheral') ||
+                (group === 'hbf' && value === 'targetoid')) {
+                btn.classList.add('selected-danger');
+            } else if (group === 'margin_contour' && value === 'irregular') {
+                btn.classList.add('selected-warning');
+            } else {
+                btn.classList.add('selected');
+            }
+            
+            if (document.getElementById(group)) document.getElementById(group).value = value;
+        }
+
+        // ===================== NAIVE GROWTH =====================
+        function togglePriorSize() {
+            const interval = document.getElementById('priorInterval').value;
+            document.getElementById('priorSizeContainer').style.display = interval !== 'none' ? 'grid' : 'none';
+            if (interval === 'none') document.getElementById('growthAlert').style.display = 'none';
+        }
+
+        function calculateGrowthNaive() {
+            const current = parseFloat(document.getElementById('size').value);
+            const prior = parseFloat(document.getElementById('priorSize').value);
+            const interval = document.getElementById('priorInterval').value;
+            const resultDiv = document.getElementById('growthResult');
+            const alertDiv = document.getElementById('growthAlert');
+            
+            if (!current || interval === 'none' || !prior) {
+                resultDiv.innerHTML = '';
+                alertDiv.style.display = 'none';
+                return;
+            }
+            
+            const growth = current - prior;
+            const rate = ((growth / prior) * 100).toFixed(1);
+            const months = parseFloat(interval);
+            
+            resultDiv.innerHTML = `
+                <div class="p-3 bg-slate-50 rounded-xl w-full">
+                    <div class="font-semibold ${growth > 0 ? 'text-red-600' : 'text-green-600'}">
+                        ${growth > 0 ? '+' : ''}${growth.toFixed(1)} mm (${rate}%)
+                    </div>
+                    <div class="text-xs text-slate-500">${months} ayda</div>
+                </div>
+            `;
+            
+            // Threshold growth (>5mm in ≤6 months or >50% in ≤6 months)
+            const isThreshold = (growth >= 5 && months <= 6) || (parseFloat(rate) >= 50 && months <= 6);
+            
+            if (isThreshold) {
+                alertDiv.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-2"></i><strong>Threshold Growth (+):</strong> ${months} ayda ≥5mm veya ≥%50 artış. LI-RADS kategorisini yükseltir.`;
+                alertDiv.className = 'alert-box alert-danger';
+            } else if (growth > 0) {
+                alertDiv.innerHTML = `<i class="fa-solid fa-chart-line mr-2"></i>Büyüme saptandı, takip önerilir.`;
+                alertDiv.className = 'alert-box alert-warning';
+            } else {
+                alertDiv.innerHTML = `<i class="fa-solid fa-check mr-2"></i>Stabil veya regrese lezyon.`;
+                alertDiv.className = 'alert-box alert-success';
+            }
+            alertDiv.style.display = 'block';
+            
+            formData.growthData = { current, prior, interval: months, growth, rate, isThreshold };
+        }
+
+        // ===================== mRECIST =====================
+        function calculateMRECIST() {
+            const currentViable = parseFloat(document.getElementById('current_viable_size').value);
+            const baselineViable = parseFloat(document.getElementById('baseline_viable').value) || parseFloat(document.getElementById('baseline_size').value);
+            const preview = document.getElementById('mrecist-preview');
+            
+            if (isNaN(currentViable)) { preview.style.display = 'none'; return; }
+            
+            let category, cssClass, desc;
+            
+            if (currentViable === 0) {
+                category = 'CR';
+                cssClass = 'alert-success';
+                desc = 'Complete Response - Viable tümör yok';
+            } else if (baselineViable && baselineViable > 0) {
+                const change = ((currentViable - baselineViable) / baselineViable * 100).toFixed(1);
+                
+                if (change <= -30) {
+                    category = 'PR';
+                    cssClass = 'alert-info';
+                    desc = `Partial Response - Viable tümörde ${Math.abs(change)}% azalma`;
+                } else if (change >= 20) {
+                    category = 'PD';
+                    cssClass = 'alert-danger';
+                    desc = `Progressive Disease - Viable tümörde ${change}% artış`;
+                } else {
+                    category = 'SD';
+                    cssClass = 'alert-warning';
+                    desc = `Stable Disease - Değişim ${change}%`;
+                }
+                
+                formData.mrecistData = { category, currentViable, baselineViable, change };
+            } else {
+                category = currentViable > 0 ? 'Viable (+)' : '?';
+                cssClass = 'alert-warning';
+                desc = 'Baseline viable boyut girilmedi, karşılaştırma yapılamıyor';
+                formData.mrecistData = { category, currentViable, baselineViable: null };
+            }
+            
+            preview.innerHTML = `<span class="badge badge-${category.toLowerCase()} mr-2">${category}</span> ${desc}`;
+            preview.className = `alert-box ${cssClass}`;
+            preview.style.display = 'block';
+        }
+
+        // ===================== ADC TOGGLE =====================
+        function toggleADC() {
+            const unmeasurable = document.getElementById('adc_unmeasurable').checked;
+            document.getElementById('adc').disabled = unmeasurable;
+            if (unmeasurable) document.getElementById('adc').value = '';
+        }
+
+        // ===================== NAVIGATION =====================
+        function nextStep(step) {
+            // Validation
+            if (step === 3) {
+                if (evaluationType === 'naive' && !document.getElementById('size').value) {
+                    alert("Lezyon boyutunu girin."); return;
+                }
+                if (evaluationType === 'post_treatment' && document.getElementById('current_viable_size').value === '') {
+                    alert("Viable tümör çapını girin (yoksa 0)."); return;
+                }
+            }
+            if (step === 4 && (!formData.t1 || !formData.t2)) {
+                alert("T1 ve T2 sinyal intensitelerini seçin."); return;
+            }
+            if (step === 5 && (!formData.aphe || !formData.washout || !formData.hbf)) {
+                alert("Tüm dinamik faz değerlendirmelerini tamamlayın."); return;
+            }
+            
+            document.querySelectorAll('.step-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`step-${step}`).classList.remove('hidden');
+            renderSidebar(evaluationType === 'post_treatment' ? postTreatmentSteps : naiveSteps, step);
+        }
+
+        function prevStep(step) {
+            document.querySelectorAll('.step-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`step-${step}`).classList.remove('hidden');
+            renderSidebar(evaluationType === 'post_treatment' ? postTreatmentSteps : naiveSteps, step);
+        }
+
+        // ===================== CALCULATE RESULT =====================
+        function calculateResult() {
+            const t1 = formData.t1, t2 = formData.t2, aphe = formData.aphe, washout = formData.washout, hbf = formData.hbf;
+            const capsule = document.getElementById('capsule').checked;
+            const fat = document.getElementById('fat').checked;
+            const corona = document.getElementById('corona').checked;
+            const mosaic = document.getElementById('mosaic').checked;
+            const noduleInNodule = document.getElementById('nodule_in_nodule').checked;
+            const siderosis = document.getElementById('siderosis').checked;
+            const vascularInvasion = document.getElementById('vascular_invasion').checked;
+            const newLesion = document.getElementById('new_lesion').checked;
+            const extrahepatic = document.getElementById('extrahepatic').checked;
+            const lymphNode = document.getElementById('lymph_node').checked;
+            const adc = parseFloat(document.getElementById('adc').value) || null;
+            const dwi = document.getElementById('dwi').value;
+            
+            let result = {
+                lirads: null, liradsDesc: '', mrecist: null, mrecistDesc: '',
+                title: '', desc: '', color: '', icon: '', confidence: 0,
+                followUp: '', urgency: 'routine', findings: []
+            };
+
+            // ============ POST-TREATMENT ============
+            if (evaluationType === 'post_treatment') {
+                const currentViable = parseFloat(document.getElementById('current_viable_size').value);
+                const peripheralEnh = document.getElementById('peripheral_enhancement').checked;
+                const marginContour = formData.margin_contour;
+                
+                // LI-RADS TR Algorithm
+                if (vascularInvasion) {
+                    result.lirads = 'LR-TIV';
+                    result.liradsDesc = 'Tumor in Vein';
+                    result.title = 'Vasküler İnvazyon';
+                    result.desc = 'Portal ven veya hepatik vende tümör trombozu saptandı.';
+                    result.color = 'bg-red-100 border-red-300 text-red-800';
+                    result.icon = 'fa-skull-crossbones';
+                    result.urgency = 'urgent';
+                    result.confidence = 95;
+                }
+                else if (currentViable === 0 && (aphe === 'yok' || aphe === 'hafif') && !peripheralEnh) {
+                    result.lirads = 'LR-TR Nonviable';
+                    result.liradsDesc = 'Tedavi Yanıtı - Viable Tümör Yok';
+                    result.title = 'Komplet Yanıt';
+                    result.desc = 'Tedavi alanında arteriyel faz hipervaskülarizasyonu yok. Viable tümör saptanmadı.';
+                    result.color = 'bg-green-100 border-green-300 text-green-800';
+                    result.icon = 'fa-check-circle';
+                    result.urgency = 'routine';
+                    result.confidence = 95;
+                    result.followUp = '3-6 ay kontrol MRG';
+                }
+                else if (currentViable > 0 || peripheralEnh || (aphe === 'nonrim' || aphe === 'rim')) {
+                    const isDefiniteViable = (aphe === 'nonrim' || aphe === 'rim') && (washout === 'var' || washout === 'peripheral');
+                    const isSuspicious = peripheralEnh || marginContour === 'nodular';
+                    
+                    if (isDefiniteViable || (currentViable > 0 && (aphe === 'nonrim' || aphe === 'rim'))) {
+                        result.lirads = 'LR-TR Viable';
+                        result.liradsDesc = 'Rezidü veya Rekürrens';
+                        result.title = marginContour === 'nodular' || peripheralEnh ? 'Lokal Rekürrens' : 'Rezidü Viable Tümör';
+                        result.desc = `Tedavi alanında/kenarında arteriyel hipervaskülarizasyon ve/veya washout mevcut. Viable tümör: ${currentViable}mm.`;
+                        result.color = 'bg-red-100 border-red-300 text-red-800';
+                        result.icon = 'fa-exclamation-triangle';
+                        result.urgency = 'high';
+                        result.confidence = 90;
+                        result.followUp = 'Ek lokal tedavi (re-ablasyon, TACE) veya sistemik tedavi değerlendirmesi';
+                    } else {
+                        result.lirads = 'LR-TR Equivocal';
+                        result.liradsDesc = 'Belirsiz Yanıt';
+                        result.title = 'Belirsiz Tedavi Yanıtı';
+                        result.desc = 'Enhancement paterni atipik. Kesin viable tümör tanımlanamıyor.';
+                        result.color = 'bg-yellow-100 border-yellow-300 text-yellow-800';
+                        result.icon = 'fa-question-circle';
+                        result.urgency = 'close_monitoring';
+                        result.confidence = 60;
+                        result.followUp = '6-8 hafta içinde kontrol MRG';
+                    }
+                }
+                else {
+                    result.lirads = 'LR-TR Equivocal';
+                    result.liradsDesc = 'Belirsiz';
+                    result.title = 'Belirsiz Tedavi Yanıtı';
+                    result.desc = 'Bulgular kesin kategorilendirme için yetersiz.';
+                    result.color = 'bg-yellow-100 border-yellow-300 text-yellow-800';
+                    result.icon = 'fa-question-circle';
+                    result.urgency = 'close_monitoring';
+                    result.confidence = 50;
+                    result.followUp = '6-8 hafta kontrol';
+                }
+                
+                // mRECIST
+                if (formData.mrecistData) {
+                    result.mrecist = formData.mrecistData.category;
+                    if (result.mrecist === 'CR') result.mrecistDesc = 'Complete Response';
+                    else if (result.mrecist === 'PR') result.mrecistDesc = 'Partial Response';
+                    else if (result.mrecist === 'SD') result.mrecistDesc = 'Stable Disease';
+                    else if (result.mrecist === 'PD') result.mrecistDesc = 'Progressive Disease';
+                }
+                
+                // New lesion = automatic PD
+                if (newLesion) {
+                    result.mrecist = 'PD';
+                    result.mrecistDesc = 'Progressive Disease (Yeni lezyon)';
+                    result.desc += ' YENİ İNTRAHEPATİK LEZYON SAPTANDI.';
+                    result.urgency = 'urgent';
+                }
+                
+                // Extrahepatic
+                if (extrahepatic || lymphNode) {
+                    result.desc += extrahepatic ? ' Ekstrahepatik metastaz mevcut.' : '';
+                    result.desc += lymphNode ? ' Patolojik lenf nodu.' : '';
+                    result.urgency = 'urgent';
+                    result.followUp = 'Sistemik tedavi değerlendirmesi';
+                }
+            }
+            // ============ NAIVE ============
+            else {
+                const size = parseFloat(document.getElementById('size').value);
+                const hasAPHE = aphe === 'nonrim';
+                const hasWashout = washout === 'var';
+                const majorCount = (hasWashout ? 1 : 0) + (capsule ? 1 : 0) + (formData.growthData?.isThreshold ? 1 : 0);
+                
+                // TIV
+                if (vascularInvasion) {
+                    result.lirads = 'LR-TIV';
+                    result.title = 'HCC - Vasküler İnvazyon';
+                    result.desc = 'Portal ven veya hepatik vende tümör trombozu. BCLC C.';
+                    result.color = 'bg-red-200 border-red-400 text-red-900';
+                    result.icon = 'fa-skull-crossbones';
+                    result.urgency = 'urgent';
+                    result.confidence = 95;
+                }
+                // LR-M
+                else if (aphe === 'rim' || washout === 'peripheral' || hbf === 'targetoid') {
+                    result.lirads = 'LR-M';
+                    result.title = 'Muhtemelen Malign - HCC Dışı';
+                    result.desc = 'Targetoid morfoloji. İntrahepatik kolanjiyokarsinom veya metastaz?';
+                    result.color = 'bg-slate-200 border-slate-400 text-slate-900';
+                    result.icon = 'fa-exclamation';
+                    result.urgency = 'high';
+                    result.confidence = 85;
+                    result.followUp = 'Biyopsi önerilir';
+                }
+                // Benign
+                else if (t2 === 'belirgin_hiper' && !hasAPHE && washout === 'progressive') {
+                    result.lirads = 'LR-1';
+                    result.title = 'Benign - Hemanjiom';
+                    result.desc = 'T2 belirgin hiperintens, progresif dolum paterni.';
+                    result.color = 'bg-green-100 border-green-300 text-green-800';
+                    result.icon = 'fa-smile';
+                    result.urgency = 'routine';
+                    result.confidence = 95;
+                }
+                // Siderotic RN
+                else if (t1 === 'hiperintens' && t2 === 'hipointens' && siderosis && !hasAPHE) {
+                    result.lirads = 'LR-1';
+                    result.title = 'Siderotik Rejeneratif Nodül';
+                    result.desc = 'T1 hiperintens, T2 hipointens, siderozis. Klasik RN.';
+                    result.color = 'bg-green-100 border-green-300 text-green-800';
+                    result.icon = 'fa-shield-heart';
+                    result.urgency = 'routine';
+                    result.confidence = 95;
+                }
+                // Nodule in nodule
+                else if (noduleInNodule) {
+                    result.lirads = 'LR-5';
+                    result.title = 'HCC - Nodül içinde Nodül';
+                    result.desc = 'Displastik nodül zemininde malign transformasyon.';
+                    result.color = 'bg-red-100 border-red-300 text-red-800';
+                    result.icon = 'fa-radiation';
+                    result.urgency = 'urgent';
+                    result.confidence = 95;
+                }
+                // LR-5 (Classic HCC)
+                else if (hasAPHE && size >= 20 && majorCount >= 1) {
+                    result.lirads = 'LR-5';
+                    result.title = 'Hepatosellüler Karsinom';
+                    result.desc = `≥20mm + APHE + ${hasWashout ? 'washout' : ''}${capsule ? ' kapsül' : ''}`;
+                    result.color = 'bg-red-100 border-red-300 text-red-800';
+                    result.icon = 'fa-biohazard';
+                    result.urgency = 'urgent';
+                    result.confidence = 92;
+                }
+                else if (hasAPHE && size >= 10 && size < 20 && majorCount >= 2) {
+                    result.lirads = 'LR-5';
+                    result.title = 'Hepatosellüler Karsinom';
+                    result.desc = `10-19mm + APHE + ≥2 major kriter (washout, kapsül, threshold growth)`;
+                    result.color = 'bg-red-100 border-red-300 text-red-800';
+                    result.icon = 'fa-biohazard';
+                    result.urgency = 'urgent';
+                    result.confidence = 90;
+                }
+                // LR-4
+                else if (hasAPHE && (majorCount >= 1 || size >= 10)) {
+                    result.lirads = 'LR-4';
+                    result.title = 'Muhtemelen HCC';
+                    result.desc = 'APHE mevcut, LR-5 kriterleri tam karşılanmıyor.';
+                    result.color = 'bg-orange-100 border-orange-300 text-orange-800';
+                    result.icon = 'fa-virus';
+                    result.urgency = 'high';
+                    result.confidence = 75;
+                    result.followUp = '3 ay MRG veya biyopsi';
+                }
+                // LR-3 (HBF hypointense = OATP loss)
+                else if (hbf === 'hipointens' && !hasAPHE) {
+                    result.lirads = 'LR-3';
+                    result.title = 'Orta Olasılıkla HCC';
+                    result.desc = 'HBF hipointens (OATP kaybı) ancak APHE yok. HGDN veya early HCC?';
+                    result.color = 'bg-yellow-100 border-yellow-300 text-yellow-800';
+                    result.icon = 'fa-exclamation-triangle';
+                    result.urgency = 'close_monitoring';
+                    result.confidence = 60;
+                    result.followUp = '3-6 ay MRG takip';
+                }
+                // LR-2
+                else if ((hbf === 'izointens' || hbf === 'hiperintens') && !hasAPHE && size < 20) {
+                    result.lirads = 'LR-2';
+                    result.title = 'Muhtemelen Benign';
+                    result.desc = 'Korunmuş hepatosit fonksiyonu, APHE yok. DN veya RN.';
+                    result.color = 'bg-green-50 border-green-200 text-green-700';
+                    result.icon = 'fa-circle-check';
+                    result.urgency = 'routine';
+                    result.confidence = 75;
+                    result.followUp = '6-12 ay takip';
+                }
+                else {
+                    result.lirads = 'LR-3';
+                    result.title = 'İndetermine';
+                    result.desc = 'Bulgular spesifik kategorilendirme için yetersiz.';
+                    result.color = 'bg-yellow-50 border-yellow-200 text-yellow-700';
+                    result.icon = 'fa-question-circle';
+                    result.urgency = 'close_monitoring';
+                    result.confidence = 50;
+                    result.followUp = '3-6 ay MRG takip';
+                }
+                
+                // Threshold growth upgrade
+                if (formData.growthData?.isThreshold && result.lirads === 'LR-3') {
+                    result.lirads = 'LR-4';
+                    result.desc += ' Threshold growth (+) nedeniyle upgrade.';
+                    result.confidence += 10;
+                } else if (formData.growthData?.isThreshold && result.lirads === 'LR-4') {
+                    result.lirads = 'LR-5';
+                    result.desc += ' Threshold growth (+) nedeniyle upgrade.';
+                    result.confidence += 10;
+                }
+            }
+            
+            renderResult(result);
+            nextStep(6);
+        }
+
+        // ===================== RENDER RESULT =====================
+        function renderResult(r) {
+            const treatmentLabels = {
+                'mwa': 'MWA', 'rfa': 'RFA', 'cryo': 'Kriyoablasyon',
+                'ctace': 'cTACE', 'deb_tace': 'DEB-TACE', 'tae': 'TAE', 'tare': 'TARE/Y-90',
+                'glue': 'Glue Embolizasyon', 'combined': 'Kombine'
+            };
+            
+            let treatmentInfo = '';
+            if (evaluationType === 'post_treatment') {
+                const tType = document.getElementById('treatment_type').value;
+                const tDate = document.getElementById('treatment_date').value;
+                const sessions = document.getElementById('treatment_sessions').value;
+                
+                treatmentInfo = `
+                    <div class="bg-purple-50 border border-purple-200 rounded-xl p-4 mb-6">
+                        <h3 class="font-bold text-purple-800 mb-2"><i class="fa-solid fa-syringe mr-2"></i>Tedavi Bilgileri</h3>
+                        <div class="grid grid-cols-3 gap-4 text-sm text-purple-700">
+                            <div>Tedavi: <strong>${treatmentLabels[tType] || tType}</strong></div>
+                            <div>Tarih: <strong>${tDate}</strong></div>
+                            <div>Süre: <strong>${formData.treatmentInterval?.days || '?'} gün</strong></div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Badges
+            let badges = `<span class="badge bg-slate-800 text-white">${r.lirads}</span>`;
+            if (r.mrecist) {
+                const mClass = r.mrecist === 'CR' ? 'badge-cr' : r.mrecist === 'PR' ? 'badge-pr' : r.mrecist === 'SD' ? 'badge-sd' : 'badge-pd';
+                badges += ` <span class="badge ${mClass}">${r.mrecist}</span>`;
+            }
+            badges += ` <span class="badge bg-blue-600 text-white">Güven: ${r.confidence}%</span>`;
+            
+            // Size info
+            let sizeInfo = '';
+            if (evaluationType === 'naive') {
+                sizeInfo = `Boyut: ${document.getElementById('size').value}mm`;
+                if (formData.growthData) {
+                    sizeInfo += ` (${formData.growthData.prior}mm → ${formData.growthData.current}mm, ${formData.growthData.rate}%)`;
+                }
+            } else {
+                const total = document.getElementById('current_total_size').value || '?';
+                const viable = document.getElementById('current_viable_size').value;
+                sizeInfo = `Total: ${total}mm | Viable: ${viable}mm`;
+                if (formData.mrecistData?.change) {
+                    sizeInfo += ` (${formData.mrecistData.change}%)`;
+                }
+            }
+            
+            document.getElementById('result-container').innerHTML = `
+                <div class="text-center mb-6">
+                    <div class="inline-block p-6 rounded-full ${r.color} border-4 mb-4">
+                        <i class="fa-solid ${r.icon} text-5xl"></i>
+                    </div>
+                    <h2 class="text-3xl font-bold text-slate-800 mb-3">${r.title}</h2>
+                    <div class="flex justify-center gap-2 flex-wrap mb-4">${badges}</div>
+                    <p class="text-lg text-slate-600 max-w-2xl mx-auto">${r.desc}</p>
+                </div>
+                
+                ${treatmentInfo}
+                
+                ${r.mrecist ? `
+                <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+                    <h3 class="font-bold text-blue-800 mb-2"><i class="fa-solid fa-chart-line mr-2"></i>mRECIST Değerlendirmesi</h3>
+                    <div class="flex items-center gap-4">
+                        <span class="badge badge-${r.mrecist.toLowerCase()} text-lg px-4 py-2">${r.mrecist}</span>
+                        <span class="text-blue-700">${r.mrecistDesc}</span>
+                    </div>
+                    ${formData.mrecistData ? `
+                    <div class="text-sm text-blue-600 mt-2">
+                        Baseline: ${formData.mrecistData.baselineViable || '?'}mm → Güncel: ${formData.mrecistData.currentViable}mm
+                    </div>` : ''}
+                </div>` : ''}
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div class="bg-slate-50 p-4 rounded-xl border">
+                        <h3 class="font-bold text-slate-700 mb-3">📊 Bulgular</h3>
+                        <div class="text-sm text-slate-600 space-y-1">
+                            <div>• ${sizeInfo}</div>
+                            <div>• T1: ${formData.t1} | T2: ${formData.t2}</div>
+                            <div>• Arteriyel: ${formData.aphe} | Washout: ${formData.washout}</div>
+                            <div>• HBF: ${formData.hbf}</div>
+                            ${document.getElementById('capsule').checked ? '<div>• ✓ Enhancing kapsül</div>' : ''}
+                            ${document.getElementById('fat').checked ? '<div>• ✓ İntralezyonel yağ</div>' : ''}
+                            ${document.getElementById('mosaic').checked ? '<div>• ✓ Mozaik patern</div>' : ''}
+                            ${document.getElementById('vascular_invasion').checked ? '<div class="text-red-600 font-medium">• ⚠️ Vasküler invazyon</div>' : ''}
+                            ${document.getElementById('new_lesion').checked ? '<div class="text-red-600 font-medium">• ⚠️ Yeni lezyon</div>' : ''}
+                        </div>
+                    </div>
+                    
+                    <div class="bg-amber-50 p-4 rounded-xl border border-amber-200">
+                        <h3 class="font-bold text-amber-800 mb-3">🔔 Takip</h3>
+                        <div class="text-sm text-amber-700">
+                            <div class="font-semibold mb-2">${r.followUp || 'Klinik duruma göre karar verilmeli'}</div>
+                            ${r.urgency === 'urgent' ? '<div class="text-red-600 font-bold">⚠️ ACİL - MDT değerlendirmesi</div>' :
+                              r.urgency === 'high' ? '<div class="text-orange-600 font-semibold">⚡ Öncelikli takip</div>' :
+                              r.urgency === 'close_monitoring' ? '<div class="text-blue-600">👁️ Yakın takip</div>' :
+                              '<div class="text-green-600">✓ Rutin surveylans</div>'}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-slate-100 p-4 rounded-xl text-xs text-slate-500">
+                    <div class="font-semibold mb-1">Referanslar:</div>
+                    <div>• LI-RADS v2018: Chernyak V, et al. Radiology 2018;289:816-830</div>
+                    <div>• mRECIST: Lencioni R, Llovet JM. Semin Liver Dis 2010;30:52-60</div>
+                    <div>• EASL Clinical Practice Guidelines: J Hepatol 2018;69:182-236</div>
+                </div>
+            `;
+        }
+
+        // ===================== UTILITIES =====================
+        function resetForm() {
+            document.getElementById('mainForm').reset();
+            evaluationType = null;
+            formData = { t1: null, t2: null, aphe: null, washout: null, hbf: null, margin_contour: null, growthData: null, mrecistData: null, treatmentInterval: null };
+            document.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected', 'selected-warning', 'selected-danger'));
+            document.querySelectorAll('.step-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById('step-1').classList.remove('hidden');
+            document.getElementById('treatment-details').style.display = 'none';
+            document.getElementById('interval-display').style.display = 'none';
+            document.getElementById('priorSizeContainer').style.display = 'none';
+            document.getElementById('growthAlert').style.display = 'none';
+            document.getElementById('mrecist-preview').style.display = 'none';
+            renderSidebar(naiveSteps, 1);
+        }
+
+        function copyReport(evt) {
+            const container = document.getElementById('result-container');
+            if (!container) return;
+            
+            const text = `SİROTİK KARACİĞER LEZYON DEĞERLENDİRME RAPORU\n${'='.repeat(50)}\n\n${container.innerText}\n\nOluşturulma: ${new Date().toLocaleString('tr-TR')}\nSirotik Nodül Uzmanı v4.2`;
+            
+            const btn = evt?.currentTarget;
+            const success = () => {
+                if (!btn) return;
+                const orig = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-check mr-2"></i>Kopyalandı!';
+                btn.classList.replace('bg-slate-800', 'bg-green-600');
+                setTimeout(() => { btn.innerHTML = orig; btn.classList.replace('bg-green-600', 'bg-slate-800'); }, 1500);
+            };
+            
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).then(success);
+            } else {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.cssText = 'position:fixed;top:-9999px';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                success();
+            }
+        }
+    </script>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Asistan göreve hazır (SW registered)', reg))
+                    .catch(err => console.log('Asistan başlatılamadı (SW failed)', err));
+            });
+        }
+    </script>
+</body>
+</html>
